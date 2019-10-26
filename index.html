@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<link rel="stylesheet" type="text/css" href="style.css"/>
+	<title>Tense</title>
+	<script src="./jquery.js"></script>
+	<script type="text/javascript">
+		function get_default_fighter(){ return {points: 0, C1: 0, C2: 0, lastname: "Левый"};}
+		var contestants = [];
+		var circles = undefined;
+		var current_fighters = {
+			left: get_default_fighter(),
+			right: get_default_fighter(),
+			coords: {x: -1, y: -1},
+			timer:  {m: 0, s: 30, id: -1}
+		};
+		function createPerson(p, where){
+			var elem = $('<div />').addClass('record')
+			.append(
+				$('<span>').addClass('lastname').append($('<p>').text(p.lastname))
+			)
+			.append(
+				$('<span>').addClass('firstname').append($('<p>').text(p.firstname))
+			)
+			.append(
+				$('<div>').addClass('more').append($('<p>').text(p.more))
+			)[0];
+			where.appendChild(elem);
+			contestants.push(p);
+		}
+		function checkInputs(a){
+			var ok = true;
+			for (var i = 0; i < a.length; i++) {
+				if (a[i].value == ''){
+					a[i].classList.add('err');
+					a[i].placeholder = 'Необходимо заполнить';
+					ok = false;
+				}
+			}
+			return ok;
+		}
+		function inputFocus(e, pl){
+			e.classList.remove('err');
+			e.placeholder = pl;
+		}
+
+		function onClick(e) {
+			var arr = $(e).children('input:text');	//collect all inputs
+			// if (!checkInputs(arr)) return;			//if any is empty - error
+			var person = {};						//prepare object
+			arr.each(function(n, e){person[e.getAttribute('name')] = e.value;});	//fill object: value of 'name' attribute is input value 
+			createPerson(person, e.parentNode.getElementsByClassName('info')[0]);	//render this object on DOM
+			arr.each(function(n, e){e.value = ''})									//clear inputs
+		}
+		/*------grid generating-------*/
+		function get_number_of_circles(){
+			return Math.log2(contestants.length) + 1;
+		}
+		function get_net_of_nth(n){
+			if (n < 3)  return [0, 2, 1, 3];
+			if (n < 5)  return [0, 2, 1, 3];
+			if (n < 9)  return [0, 4, 2, 6, 1, 5, 3, 7];
+			if (n < 17) return [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15];
+			if (n < 33) return [0, 16, 8, 24, 4, 20, 12, 28, 2, 18, 10, 26, 6, 22, 14, 30, 1, 17, 9, 25, 5, 21, 13, 29, 3, 19, 11, 27, 7, 23, 15, 31]
+			if (n < 65) return [1, 33, 17, 49, 9, 41, 25, 57, 5, 37, 21, 53, 13, 45, 29, 61, 3, 35, 19, 51, 11, 43, 27, 59, 7, 39, 23, 55, 15, 47, 31, 63, 2, 34, 18, 50, 10, 42, 26, 58, 6, 38, 22, 54, 14, 46, 30, 62, 4, 36, 20, 52, 12, 44, 28, 60, 8, 40, 24, 56, 16, 48, 32, 64]
+		}
+		function remove_empty_pairs(c){
+			var result = []
+			for (var i = 0; i < c.length; i++)
+				if (typeof c[i].first === 'undefined' && typeof c[i].second === 'undefined') continue;
+				else result.push(c[i])
+			return result;
+		}
+		//first_circle_only
+		function get_array_of_pairs(){
+			var result = [];
+			var net = get_net_of_nth(contestants.length);
+			for (var i = 0; i < net.length; i++)
+				if (net[i] >= contestants.length)
+					net[i] = undefined;
+			for (var i = 0; i < net.length; i++)
+				result.push({first: net[i], second: net[++i]});
+			return remove_empty_pairs(result);
+		}
+		function get_only_in_pair(p){
+			if(p.first === undefined) return p.second;
+			if(p.second === undefined) return p.first;
+		}
+		function pair_is_full(p){
+			return typeof p.first !== 'undefined' && typeof p.second !== 'undefined'
+		}
+		function pair_is_empty(p){
+			return typeof p.first === 'undefined' && typeof p.second === 'undefined'
+		}
+		//return array of array of pairs
+		function get_circles(){
+			var first_circle = get_array_of_pairs();
+			var circles_inner = [first_circle];
+			for (x = first_circle.length / 2; x >= 1; x /= 2) 
+				circles_inner.push(new Array(Math.ceil(x)).fill({first: undefined, second: undefined}));
+			return circles_inner;
+		}
+		function not_undefined_or(a,b){
+			if(a) return a;
+			return b;
+		}
+		function get_empty_player(){
+			return {
+				lastname: '-'
+			};
+		}
+		function parse_coords(a){
+			var spl = a.split(' ').map(Number)
+			return {
+				x: spl[0],
+				y: spl[1]
+			};
+		}
+		function move_forward_contestant(pair_coords, c_id){
+			new_x = pair_coords.x + 1;
+			new_y = Math.trunc(pair_coords.y / 2)
+			is_first = (pair_coords.y % 2 == 0)
+			circles[new_x][new_y][is_first ? 'first' : 'second'] = c_id;
+			render_circles();
+			console.log('move_forward_contestant');
+		}
+		function on_pair_click(e){
+			e.stopPropagation();
+			var target_pair = $(e.currentTarget);
+			var pair_coords = parse_coords(target_pair.attr('tense_coord'));
+			var pair = circles[pair_coords.x][pair_coords.y]
+			if (pair_is_empty(pair)) return;
+			if (pair_is_full(pair))	open_fight_window(pair, pair_coords);
+			else move_forward_contestant(pair_coords, get_only_in_pair(pair));
+		}
+		function open_fight_window(pair, coords){
+			//pair = {first: id, second: id}
+			if (current_fighters.coords.x != coords.x || current_fighters.coords.y != coords.y){
+				var shure;
+				if (current_fighters.coords.x == -1 && current_fighters.coords.y == -1) shure = true;
+				else shure = confirm("Вы открываете новый бой, вы уверены, что оно вам надо?");
+				if (shure){
+
+					current_fighters.coords = coords;
+
+					current_fighters.left.points = 0;
+					current_fighters.left.lastname = contestants[pair.second].lastname;
+					current_fighters.left.C1 = 0;
+					current_fighters.left.C2 = 0;
+
+					current_fighters.right.points = 0;
+					current_fighters.right.lastname = contestants[pair.first].lastname;
+					current_fighters.right.C1 = 0;
+					current_fighters.right.C2 = 0;
+					rerender_fight_window();
+					send_event({type: 'update', data: current_fighters})
+				}
+				else return;
+				
+			}
+
+			show_fight_window();
+		}
+		function close_fight_window(){
+			document.getElementById('fight-window').classList.remove('show');
+		}
+		function show_fight_window(){
+			document.getElementById('fight-window').classList.add('show');
+		}
+		function rerender_fight_window(){
+			win = $(document.getElementById('fight-window'));
+			var right = win.find('.side.right');
+			var left =  win.find('.side.left');
+			right.removeClass('winner');
+			left.removeClass('winner');
+
+			right.find('.points').text('00');
+			left.find('.points').text('00');
+
+			right.find('.lastname').text(current_fighters.right.lastname);
+			left.find('.lastname').text(current_fighters.left.lastname);
+
+			right.find('.C > .box').each(function(n, e){
+				e.classList.remove('half')
+				e.classList.remove('active')
+			})
+			left.find('.C > .box').each(function(n, e){
+				e.classList.remove('half')
+				e.classList.remove('active')
+			})
+			rerender_timer();
+		}
+		//===============================================================================================
+		function get_rendered_circle(c, n){
+			var result = $('<div />').addClass('circle');
+			for (var i = 0; i < c.length; ++i) {
+				first_lastname = (typeof c[i].first !==  'undefined') ? contestants[c[i].first].lastname : '-';
+				second_lastname = (typeof c[i].second !==  'undefined') ? contestants[c[i].second].lastname : '-';
+				result.append(
+					$('<div />').addClass('pair')
+						.append($('<div />').addClass('contestant').text(first_lastname))
+						.append($('<div />').addClass('contestant').text(second_lastname))
+						.click(on_pair_click)
+						.attr('tense_coord', n.toString() + ' ' + i.toString())//coords of pair
+				)
+			}
+			return result;
+		}
+		function render_circles(){
+			if (circles === undefined || (circles.length == 1 && circles[0].length == 0)) return;
+			var cont = $('content.chart');
+			cont.empty();
+			for (var i = 0; i < circles.length; i++) {
+				cont.append(get_rendered_circle(circles[i], i)[0]);
+			}
+		}
+		function render_contestants_list(){
+			document.getElementById('contestants-list').innerHTML = "";
+			contestants.forEach(function(e, i){
+				createPerson(e, document.getElementById('contestants-list'));
+			});
+		}
+		function save_grid(){
+			if (typeof circles === 'undefined') circles = get_circles();
+			localStorage.setItem('contestants', JSON.stringify(contestants));
+			localStorage.setItem('circles', JSON.stringify(circles));
+		}
+		function restore_grid(){
+			var c = localStorage.getItem('contestants');
+			if (c != null) contestants = JSON.parse(c);
+			var v = localStorage.getItem('circles');
+			if (v != null) circles = JSON.parse(v);
+		}
+		function hoverC(e, n){
+			var arr = e.parentNode.getElementsByClassName('box');
+			for(var i = 0; i < n; ++i) arr[i].classList.add('half');
+		}
+		function unhoverC(e){
+			var arr = e.parentNode.getElementsByClassName('box');
+			for(var i = 0; i < arr.length; ++i) arr[i].classList.remove('half');
+		}
+		function on_C1_click(e, n, is_left){
+			if (n < current_fighters[is_left ? 'left' : 'right'].C1) return;
+			var arr = e.parentNode.getElementsByClassName('box');
+			for(var i = 0; i < n; ++i) arr[i].classList.add('active');
+			current_fighters[is_left ? 'left' : 'right'].C1 = n;
+			send_event({type: 'C1', count: n, is_left: is_left});
+			search_winner();
+		}
+		function on_C2_click(e, n, is_left){
+			if (n < current_fighters[is_left ? 'left' : 'right'].C2) return;
+			var arr = e.parentNode.getElementsByClassName('box');
+			for(var i = 0; i < n; ++i) arr[i].classList.add('active');
+			current_fighters[is_left ? 'left' : 'right'].C2 = n;
+			send_event({type: 'C2', count: n, is_left: is_left});
+			search_winner();
+		}
+		function add_points(n, is_left){
+			if (current_fighters[is_left ? 'left' : 'right'].points + n < 0) return;
+			current_fighters[is_left ? 'left' : 'right'].points += n;
+			rerender_fight_window_points();
+			send_event({type: 'points', count_str: get_points_count_of_fighter(is_left), is_left: is_left});
+			search_winner();
+		}
+		function search_winner() {
+			//legacy;
+			//may be useful later ¯ \ _ (ツ) _ / ¯
+			return;
+			var points_diff = current_fighters.left.points - current_fighters.right.points;
+			if (Math.abs(points_diff) >=8)
+				if (current_fighters.left.points > current_fighters.right.points) 
+					run_win(true);
+				else 
+					run_win(false);
+			if (current_fighters.left.C1 >=4 || current_fighters.left.C2 >= 4)
+				run_win(false);
+			if (current_fighters.right.C1 >=4 || current_fighters.right.C2 >= 4)
+				run_win(true);
+
+			if (current_fighters.timer.m == 0 && current_fighters.timer.s == 0)
+				run_win(current_fighters.left.points > current_fighters.right.points);
+
+		}
+		function run_win(is_left){
+			stop_timer();
+			render_winner(is_left);
+			send_event({type: 'winner', is_left: is_left});
+			move_forward_contestant(current_fighters.coords, circles[current_fighters.coords.x][current_fighters.coords.y][is_left ? 'second' : 'first']);
+		}
+		function get_points_count_of_fighter(is_left){
+			return num_to_2_char(current_fighters[is_left ? 'left' : 'right'].points)
+		}
+		function num_to_2_char(n){
+			str = n.toString();
+			return str.length == 2 ? str : '0' + str;
+		}
+		function rerender_fight_window_points(){
+			$(document.getElementById('fight-window')).find('.side.right').find('.points').text(get_points_count_of_fighter(false));
+			$(document.getElementById('fight-window')).find('.side.left').find('.points').text(get_points_count_of_fighter(true));
+		}
+		function send_event(event, channel){
+			if (typeof channel === 'undefined') 
+				channel = 'to_slave';
+			event.now = new Date().getTime();
+			localStorage.setItem(channel, JSON.stringify(event));
+		}
+		function open_fight_tab(){
+			send_event({type: 'update', data: current_fighters}, 'update_slave');
+			window.open('./fight_tab.html', '_blank');
+		}
+		function render_winner(is_left){
+			$(document.getElementById('fight-window')).find('.side.' + (is_left ? 'left' : 'right')).first().addClass('winner');
+			setTimeout(function(){
+				$(document.getElementById('fight-window')).find('.side.' + (is_left ? 'left' : 'right')).first().removeClass('winner');
+			}, 5000)
+		}
+		function start_timer(){
+			var inputs = $('#fight-window-timer-line > input');
+			if (inputs[0].value == '' && inputs[1].value == ''){}
+			else{
+				var m = Number(inputs[0].value);
+				var s = Number(inputs[1].value);
+				inputs[0].value = '';
+				inputs[1].value = '';
+				current_fighters.timer.m = m;
+				current_fighters.timer.s = s;
+			}
+			current_fighters.timer.id = setInterval(function(){
+				tick_timer()
+			}, 1000)
+		}
+		function tick_timer() {
+			if (current_fighters.timer.s == 0 && current_fighters.timer.m == 0){
+				stop_timer();
+				sound_fight_end();
+				search_winner();
+				return;
+			}
+			if (current_fighters.timer.s == 0){
+				current_fighters.timer.m -= 1;
+				current_fighters.timer.s = 60;
+			}
+			current_fighters.timer.s -= 1;
+			rerender_timer();
+			send_event({type: 'timer_update', timer: current_fighters.timer}, 'timer_update_slave');
+		}
+		function stop_timer() {
+			clearTimeout(current_fighters.timer.id);
+			current_fighters.timer.id = -1;
+		}
+		function sound_fight_end(){/*TODO*/}
+		function rerender_timer(){
+			var places = $('#fight-window-timer-clock > p');
+			places.eq(0).text(num_to_2_char(current_fighters.timer.m))
+			places.eq(1).text(num_to_2_char(current_fighters.timer.s))
+		}
+		function on_timer_change(e, is_minute){
+			current_fighters.timer[is_minute ? 'm' : 's'] = Number(e.value);
+			rerender_timer();
+		}
+	</script>
+</head>
+<body>
+	<h1>Список участников</h1>
+	<content class = "contestants-list frostglass" class = "debug">
+		<div class = "info" id = "contestants-list"></div>
+		<form class = "adding" onsubmit = "onClick(this);  return false;">
+			<input type = "text" name = "lastname" placeholder = "Фамилия" onfocus="inputFocus(this, 'Фамилия')"/>
+			<input type = "text" name = "firstname"  placeholder = "Имя" onfocus="inputFocus(this, 'Имя')"/>
+			<input type = "text" name = "patronymic"  placeholder = "Отчество" onfocus="inputFocus(this, 'Имя')"/>
+			<input type = "text" name = "club" placeholder = "Клуб" onfocus="inputFocus(this, 'Клуб')"/>
+			<input type = "text" name = "more" placeholder = "Ещё инфа" onfocus="inputFocus(this, 'Ещё инфа')"/>
+			<input type = "submit" class = "add-button" value = "+"/>
+		</form>
+		<div class = "final-line">
+			<input type = "button" value = "Составить сетку" class = "generate-button" onclick="circles = get_circles(); render_circles()" />
+			<input type = "button" value = "Сохранить сетку в браузере" class = "generate-button" onclick="save_grid()" />
+			<input type = "button" value = "Восстановить последнюю сетку" class = "generate-button" onclick="restore_grid(); render_circles(); render_contestants_list()" />
+		</div>
+	</content>
+
+	<h1>Турнирная таблица</h1>
+	<content class = "chart frostglass">
+	</content>
+
+
+	<content id = "fight-window" class = "frostglass show">
+		<div class = "left side">
+			<div class = "lastname">Пупкин</div>
+			<div class = "C">
+				<div class = "text">C1</div>
+				<div class = "box" onclick = "on_C1_click(this, 1, true)" onmouseover = "hoverC(this, 1)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C1_click(this, 2, true)" onmouseover = "hoverC(this, 2)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C1_click(this, 3, true)" onmouseover = "hoverC(this, 3)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C1_click(this, 4, true)" onmouseover = "hoverC(this, 4)" onmouseout = "unhoverC(this)"></div>
+			</div>
+			<div class = "C">
+				<div class = "text">C2</div>
+				<div class = "box" onclick = "on_C2_click(this, 1, true)" onmouseover = "hoverC(this, 1)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C2_click(this, 2, true)" onmouseover = "hoverC(this, 2)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C2_click(this, 3, true)" onmouseover = "hoverC(this, 3)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C2_click(this, 4, true)" onmouseover = "hoverC(this, 4)" onmouseout = "unhoverC(this)"></div>
+			</div>
+			<div class = "buttons">
+				<div class = "button" onclick = "add_points(1, true)">Yoko +1</div>
+				<div class = "button" onclick = "add_points(2, true)">Waza-Ari +2</div>
+				<div class = "button" onclick = "add_points(3, true)">Ipon +3</div>
+				<div class = "button" onclick ="add_points(-1, true)">-1</div>
+			</div>
+			<div class = "win-button"><button onclick = "run_win(true)">Победитель</button></div>
+			<div class = "points">00</div>
+		</div>
+		<div class = "timer">
+			<div class = "clock" id = "fight-window-timer-clock"><p>00</p>:<p>00</p></div>
+			<div class = "pause" onclick = "toggle_timer()"></div>
+			<div class = "text">Укажите время раунда</div>
+			<div class = "line" id = "fight-window-timer-line">
+				<input type="number" placeholder="Минуты " onchange = "on_timer_change(this, true)">
+				<input type="number" placeholder="Секунды" onchange = "on_timer_change(this, false)" max = "60">
+			</div>
+			<button onclick="start_timer()" class = "start">Начать</button>
+			<button onclick="open_fight_tab()">Открыть новую вкладку</button>
+			<button onclick="send_event({type: 'update', data: current_fighters})">Принудительно обновить экран</button>
+			<button onclick="send_event({type: 'reverse_screen'})">Перевернуть экран</button>
+		</div>
+		<div class = "right side">
+			<div class = "lastname">Залупкин</div>
+			<div class = "C">
+				<div class = "text">C1</div>
+				<div class = "box" onclick = "on_C1_click(this, 1, false)" onmouseover = "hoverC(this, 1)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C1_click(this, 2, false)" onmouseover = "hoverC(this, 2)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C1_click(this, 3, false)" onmouseover = "hoverC(this, 3)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C1_click(this, 4, false)" onmouseover = "hoverC(this, 4)" onmouseout = "unhoverC(this)"></div>
+			</div>
+			<div class = "C">
+				<div class = "text">C2</div>
+				<div class = "box" onclick = "on_C2_click(this, 1, false)" onmouseover = "hoverC(this, 1)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C2_click(this, 2, false)" onmouseover = "hoverC(this, 2)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C2_click(this, 3, false)" onmouseover = "hoverC(this, 3)" onmouseout = "unhoverC(this)"></div>
+				<div class = "box" onclick = "on_C2_click(this, 4, false)" onmouseover = "hoverC(this, 4)" onmouseout = "unhoverC(this)"></div>
+			</div>
+			<div class = "buttons">
+				<div class = "button" onclick = "add_points(1, false)">Yoko +1</div>
+				<div class = "button" onclick = "add_points(2, false)">Waza-Ari +2</div>
+				<div class = "button" onclick = "add_points(3, false)">Ipon +3</div>
+				<div class = "button" onclick ="add_points(-1, false)">-1</div>
+			</div>
+			<div class = "win-button"><button onclick = "run_win(false)">Победитель</button></div>
+			<div class = "points">00</div>
+		</div>
+		<div class = "close" onclick="close_fight_window()"></div>
+	</content>
+</body>
+</html>

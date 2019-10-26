@@ -1,0 +1,32 @@
+:root{
+	--frostglass-blur-radius: 15px;
+}
+
+.frostglass{
+	background: inherit;
+	position: relative;
+	overflow: hidden;
+}
+.frostglass:before{
+	content: '';
+	width: calc(100% + 2 * var(--frostglass-blur-radius));
+	height: calc(100% + 2 * var(--frostglass-blur-radius));
+	background: inherit;
+	position: absolute;
+	left: calc(-1 * var(--frostglass-blur-radius));
+	top: calc(-1 * var(--frostglass-blur-radius));
+	filter: blur(var(--frostglass-blur-radius));
+	z-index: 0;
+}
+.frostglass *{
+	z-index: 1;
+}
+.frostglass.dark:before{
+	box-shadow: inset 0 0 0 5000px rgba(0, 0, 0, var(--transparent-strength));
+}
+.frostglass.light:before{
+	box-shadow: inset 0 0 0 5000px rgba(255, 255, 255, var(--transparent-strength));
+}
+.frostglass.blue:before{
+	box-shadow: inset 0 0 0 5000px var(--transparent-blue-color);
+}

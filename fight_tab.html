@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Tense Бой</title>
+	<style type="text/css">
+		@import url('https://fonts.googleapis.com/css?family=Open+Sans');
+		*{
+			margin: 0;
+			padding: 0;
+			font-family: 'Open Sans', sans-serif;
+			transition: 0.2s;
+		}
+		body{
+			display: flex;
+			flex-direction: row;
+			justify-content: space-between;
+			background-color: black;
+			background-size: cover;
+			background-attachment: fixed;
+			color: white;
+			height: 100vh;
+		}
+		body.reverse{
+			flex-direction: row-reverse;
+		}
+		.side{
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-start;
+			height: 100%;
+			width: 100%;
+		}
+		.side.right{
+			text-align: right;
+		}
+		.side .lastname{
+			text-align: center;
+			font-size: 50px;
+			font-weight: 900;
+			color: blue;
+		}
+		.side.right .lastname{
+			color: red;
+		}
+		.side .C{
+			display: flex;
+			flex-direction: row;
+			height: 30px;
+			width: calc(100% - 20px);
+			line-height: 30px;
+			font-size: 24px;
+			margin: 20px 0;
+			padding: 10px;
+		}
+		.side .C .text{
+			width: 30px;
+		}
+		.side .C .box{
+			height: 100%;
+			width: calc(25% - 10px);
+			margin-left: 10px;
+			border: 1px solid white;
+		}
+		.side .C .box.half{
+			background-color: rgba(255, 0, 0, 0.5);
+		}
+		.side.left .C .box.half{
+			background-color: rgba(0, 0, 255, 0.5);
+		}
+		.side .C .box.active{
+			background-color: red;
+		}
+		.side.left .C .box.active{
+			background-color: blue;
+		}
+		.side .points{
+			position:;
+			margin-top: 50px;
+			text-align: right;
+			font-size: 200px;
+			color: red;
+			text-shadow: gray 0 0 2px;
+			margin-top: auto;
+			margin-bottom: 50px;
+			padding: 0 50px;
+		}
+		.side.left .points{
+			color: blue;
+			text-align: left;
+		}
+		@keyframes fight-window-winner{
+			from{
+				opacity: 1;
+			}
+			50%{
+				opacity: 0;
+			}
+			to{
+				opacity: 1;
+			}
+		}
+		.side.winner .lastname{
+			animation: fight-window-winner 0.5s ease-in-out;
+			animation-iteration-count: infinite;
+		}
+		.side.winner .points{
+			animation: fight-window-winner 0.5s ease-in-out;
+			animation-iteration-count: infinite;
+		}
+		.side.center .timer{
+			width: 100%;
+			display: flex;
+			flex-direction: row;
+			justify-content: center;
+			margin-top: 50px;
+			line-height: 100px;
+			font-size: 50px;
+		}
+		.side.center .timer p{
+			font-size: 100px;
+			margin: 0 5px;
+		}
+		#logo{
+			position: fixed;
+			bottom: 0;
+			left: calc(50% - 100px);
+			height: 300px;
+			width: 200px;
+			background: url('./legion_bck.jpg');
+			background-size: cover;
+			z-index: -9;
+		}
+	</style>
+	<script src="./jquery.js"></script>
+	<script type="text/javascript">
+		function num_to_2_char(n){
+			str = n.toString();
+			return str.length == 2 ? str : '0' + str;
+		}
+		function storage_handler(e) {
+			obj = JSON.parse(e.newValue);
+			if (e.key == 'to_slave') {
+				if(obj.type == 'C1')
+					set_C1(obj.count, obj.is_left);
+				if(obj.type == 'C2')
+					set_C2(obj.count, obj.is_left);
+				if(obj.type == 'points')
+					set_points(obj.count_str, obj.is_left);
+				if(obj.type == 'update')
+					update_whole_info(obj.data);
+				if(obj.type == 'reverse_screen')
+					document.getElementById('body').classList.toggle('reverse');
+				if(obj.type == 'winner')
+					render_winner(obj.is_left);
+			}
+			if (e.key == 'timer_update_slave'){
+				if(obj.type == 'timer_update')
+					rerender_timer(obj.timer);
+			}
+		}
+		window.onstorage = storage_handler;
+		$(document).ready(function(){
+			update_whole_info(JSON.parse(localStorage.getItem('update_slave')).data);
+		});
+		function set_C1(count, is_left){
+			var arr = $(document).find('.side.' + (is_left ? 'left' : 'right')).find('.C').eq(0).find('.box').get();
+			for (var i = 0; i < count; ++i)
+				arr[i].classList.add('active');
+		}
+		function set_C2(count, is_left){
+			var arr = $(document).find('.side.' + (is_left ? 'left' : 'right')).find('.C').eq(1).find('.box').get();
+			for (var i = 0; i < count; ++i)
+				arr[i].classList.add('active')
+		}
+		function set_points(count_str, is_left){
+			$(document).find('.side.' + (is_left ? 'left' : 'right')).find('.points').text(count_str);
+		}
+		function set_lastname(lastname_str, is_left){
+			$(document).find('.side.' + (is_left ? 'left' : 'right')).find('.lastname').text(lastname_str);
+		}
+		function update_whole_info(data){
+			var left = data.left;
+			var right = data.right;
+			set_lastname(left.lastname, true);
+			set_points(left.points, true);
+			set_C1(left.C1, true);
+			set_C2(left.C2, true);
+
+			set_lastname(right.lastname, false);
+			set_points(right.points, false);
+			set_C1(right.C1, false);
+			set_C2(right.C2, false);
+		}
+		function render_winner(is_left){
+			$(document).find('.side.' + (is_left ? 'left' : 'right')).first().addClass('winner');
+			setTimeout(function(){
+				$(document).find('.side.' + (is_left ? 'left' : 'right')).first().removeClass('winner');
+			}, 5000)
+		}
+		function rerender_timer(timer){
+			console.log('SO?!');
+			var places = $(document).find('.side.center > .timer > p');
+			places.eq(0).text(num_to_2_char(timer.m));
+			places.eq(1).text(num_to_2_char(timer.s));
+		}
+	</script>
+</head>
+<body id = "body">
+	<div id = "logo"></div>
+	<div class = "left side">
+		<div class = "lastname">Левый</div>
+		<div class = "C">
+			<div class = "text">C1</div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+		</div>
+		<div class = "C">
+			<div class = "text">C2</div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+		</div>
+		<div class = "points">00</div>
+	</div>
+	<div class = "center side">
+		<div class = "timer"><p>00</p>:<p>30</p></div>
+	</div>
+	<div class = "right side">
+		<div class = "lastname">Правый</div>
+		<div class = "C">
+			<div class = "text">C1</div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+		</div>
+		<div class = "C">
+			<div class = "text">C2</div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+			<div class = "box"></div>
+		</div>
+		<div class = "points">00</div>
+	</div>
+</body>
+</html>
