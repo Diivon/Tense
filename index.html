@@ -9,6 +9,8 @@
 		function get_default_fighter(){ return {points: 0, C1: 0, C2: 0, lastname: "Левый"};}
 		var contestants = [];
 		var circles = undefined;
+		var comforting_circles = undefined;
+		var current_chart = 'main';
 		var current_fighters = {
 			left: get_default_fighter(),
 			right: get_default_fighter(),
@@ -28,6 +30,19 @@
 			)[0];
 			where.appendChild(elem);
 			contestants.push(p);
+		}
+		function renderPerson(p, where){
+			var elem = $('<div />').addClass('record')
+			.append(
+				$('<span>').addClass('lastname').append($('<p>').text(p.lastname))
+			)
+			.append(
+				$('<span>').addClass('firstname').append($('<p>').text(p.firstname))
+			)
+			.append(
+				$('<div>').addClass('more').append($('<p>').text(p.more))
+			)[0];
+			where.appendChild(elem);
 		}
 		function checkInputs(a){
 			var ok = true;
@@ -119,11 +134,15 @@
 		}
 		function move_forward_contestant(pair_coords, c_id){
 			new_x = pair_coords.x + 1;
-			new_y = Math.trunc(pair_coords.y / 2)
-			is_first = (pair_coords.y % 2 == 0)
-			circles[new_x][new_y][is_first ? 'first' : 'second'] = c_id;
+			new_y = Math.trunc(pair_coords.y / 2);
+			is_first = (pair_coords.y % 2 == 0);
+			if ($('div.charts > .active')[0].classList.contains('main'))
+				circles[new_x][new_y][is_first ? 'first' : 'second'] = c_id;
+			else
+				comforting_circles[new_x][new_y][is_first ? 'first' : 'second'] = c_id;
+			console.log(comforting_circles);
 			render_circles();
-			console.log('move_forward_contestant');
+			check_final();
 		}
 		function on_pair_click(e){
 			e.stopPropagation();
@@ -137,9 +156,11 @@
 		function open_fight_window(pair, coords){
 			//pair = {first: id, second: id}
 			if (current_fighters.coords.x != coords.x || current_fighters.coords.y != coords.y){
-				var shure;
+				var shure = true;
+				/*
 				if (current_fighters.coords.x == -1 && current_fighters.coords.y == -1) shure = true;
 				else shure = confirm("Вы открываете новый бой, вы уверены, что оно вам надо?");
+				*/
 				if (shure){
 
 					current_fighters.coords = coords;
@@ -192,7 +213,7 @@
 			rerender_timer();
 		}
 		//===============================================================================================
-		function get_rendered_circle(c, n){
+		function get_rendered_circle(c, n, on_pair_click_fn){
 			var result = $('<div />').addClass('circle');
 			for (var i = 0; i < c.length; ++i) {
 				first_lastname = (typeof c[i].first !==  'undefined') ? contestants[c[i].first].lastname : '-';
@@ -201,7 +222,7 @@
 					$('<div />').addClass('pair')
 						.append($('<div />').addClass('contestant').text(first_lastname))
 						.append($('<div />').addClass('contestant').text(second_lastname))
-						.click(on_pair_click)
+						.click(on_pair_click_fn)
 						.attr('tense_coord', n.toString() + ' ' + i.toString())//coords of pair
 				)
 			}
@@ -209,16 +230,17 @@
 		}
 		function render_circles(){
 			if (circles === undefined || (circles.length == 1 && circles[0].length == 0)) return;
-			var cont = $('content.chart');
+			var cont = $('content.chart.main');
 			cont.empty();
 			for (var i = 0; i < circles.length; i++) {
-				cont.append(get_rendered_circle(circles[i], i)[0]);
+				cont.append(get_rendered_circle(circles[i], i, on_pair_click)[0]);
 			}
+			render_comforting_circle();
 		}
 		function render_contestants_list(){
 			document.getElementById('contestants-list').innerHTML = "";
 			contestants.forEach(function(e, i){
-				createPerson(e, document.getElementById('contestants-list'));
+				renderPerson(e, document.getElementById('contestants-list'));
 			});
 		}
 		function save_grid(){
@@ -264,11 +286,8 @@
 			search_winner();
 		}
 		function search_winner() {
-			//legacy;
-			//may be useful later ¯ \ _ (ツ) _ / ¯
-			return;
 			var points_diff = current_fighters.left.points - current_fighters.right.points;
-			if (Math.abs(points_diff) >=8)
+			if (Math.abs(points_diff) >= 8)
 				if (current_fighters.left.points > current_fighters.right.points) 
 					run_win(true);
 				else 
@@ -277,7 +296,7 @@
 				run_win(false);
 			if (current_fighters.right.C1 >=4 || current_fighters.right.C2 >= 4)
 				run_win(true);
-
+			return;
 			if (current_fighters.timer.m == 0 && current_fighters.timer.s == 0)
 				run_win(current_fighters.left.points > current_fighters.right.points);
 
@@ -286,7 +305,7 @@
 			stop_timer();
 			render_winner(is_left);
 			send_event({type: 'winner', is_left: is_left});
-			move_forward_contestant(current_fighters.coords, circles[current_fighters.coords.x][current_fighters.coords.y][is_left ? 'second' : 'first']);
+			move_forward_contestant(current_fighters.coords, ($('div.charts > .active')[0].classList.contains('main') ? circles : comforting_circles)[current_fighters.coords.x][current_fighters.coords.y][is_left ? 'second' : 'first']);
 		}
 		function get_points_count_of_fighter(is_left){
 			return num_to_2_char(current_fighters[is_left ? 'left' : 'right'].points)
@@ -331,7 +350,9 @@
 			}, 1000)
 		}
 		function tick_timer() {
+			if (current_fighters.timer.is_paused) return;
 			if (current_fighters.timer.s == 0 && current_fighters.timer.m == 0){
+				toggle_timer();
 				stop_timer();
 				sound_fight_end();
 				search_winner();
@@ -359,11 +380,114 @@
 			current_fighters.timer[is_minute ? 'm' : 's'] = Number(e.value);
 			rerender_timer();
 		}
+		function toggle_timer(e) {
+			if (current_fighters.timer.id == -1) return;
+			e.classList.toggle('paused');
+			current_fighters.timer.is_paused = !current_fighters.timer.is_paused;
+			if (current_fighters.timer.is_paused)
+				send_event({type: 'timer_pause'})
+			else
+				send_event({type: 'timer_unpause'})
+		}
+		function current_chart_header(){
+			if (current_chart == 'main')
+				return 'Турнирная таблица';
+			if (current_chart == 'comforting')
+				return 'Таблица утешительных боев';
+		}
+		function toggle_current_chart(){
+			$('div.charts').first().children().each(function(i, e){e.classList.toggle('active')});
+			if (current_chart == 'main')
+				current_chart = 'comforting';
+			else if (current_chart == 'comforting')	
+				current_chart = 'main';
+			$('#current_chart_condition').first().text(current_chart_header());
+		}
+		function check_final(){
+			if (circles[circles.length - 1][0].first === undefined || circles[circles.length - 1][0].second === undefined) return;
+			if (comforting_circles !== undefined) return;
+
+			$('#chart-manage').removeClass('hide');
+			generate_comforting_circle();
+			render_comforting_circle();
+		}
+		function get_in_pair(pair, id1, id2){
+			if (pair.first == id1 || pair.second == id1)
+				return id1;
+			if (pair.first == id2 || pair.second == id2)
+				return id2;
+			return undefined;
+		}
+		function get_array_of_empty_pairs(n){
+			var res = [];
+			for (var i = 0; i < n; i++)
+				res.push({first: undefined, second: undefined});
+			return res;
+		}
+		function get_comforting_circles_of(winner_id, is){
+			var res_arr = [];
+			circles.forEach(function(circle, x){
+				res_arr.push([]);
+				circle.forEach(function(el, i){
+					if (el.first == winner_id)
+						res_arr[x].push(el.second);
+					if (el.second == winner_id)
+						res_arr[x].push(el.first);
+				})
+			});
+			res_arr.pop();
+			var first_el = res_arr.shift();
+			res_arr[0].push(first_el[0]);
+			res_arr = res_arr.map(function(el, i){
+				if (el.length == 2)
+					return {first: el[0], second: el[1]};
+				return {first: is ? undefined : el[0], second: is ? el[0] : undefined};
+			});
+			res_arr = res_arr.map(function(el, i, arr){
+				var n = Math.pow(2, arr.length - i - 1) - 1;
+				return [el].concat(get_array_of_empty_pairs(n))
+			});
+			return res_arr;
+		}
+		function generate_comforting_circle(){
+			var c_l = circles.length;
+			var f_win = circles[c_l - 1][0].first;
+			var s_win = circles[c_l - 1][0].second;
+			var res_arr = [];
+			f_circles = get_comforting_circles_of(f_win, false);
+			s_circles = get_comforting_circles_of(s_win, true);
+			s_circles.forEach(function(el){
+				el.reverse();
+			});
+			var res_arr = [];
+			for (var i = 0; i < f_circles.length; i++)
+				res_arr.push(f_circles[i].concat(s_circles[i]));
+
+			res_arr.push([{first: undefined, second: undefined}])
+			comforting_circles = res_arr;
+		}
+		function render_comforting_circle(){
+			if (comforting_circles === undefined || (comforting_circles.length == 1 && comforting_circles[0].length == 0)) return;
+			var cont = $('content.chart.comforting');
+			cont.empty();
+			comforting_circles.forEach(function(el, i){
+				cont.append(get_rendered_circle(el, i, on_comforting_pair_click)[0]);
+			});
+		}
+		function on_comforting_pair_click(e){
+			e.stopPropagation();
+			var target_pair = $(e.currentTarget);
+			var pair_coords = parse_coords(target_pair.attr('tense_coord'));
+			var pair = comforting_circles[pair_coords.x][pair_coords.y]
+			if (pair_is_empty(pair)) return;
+			if (pair_is_full(pair))	open_fight_window(pair, pair_coords);
+			else move_forward_contestant(pair_coords, get_only_in_pair(pair), comforting_circles);
+		}
 	</script>
 </head>
 <body>
 	<h1>Список участников</h1>
-	<content class = "contestants-list frostglass" class = "debug">
+	<content class = "contestants-list" class = "debug">
 		<div class = "info" id = "contestants-list"></div>
 		<form class = "adding" onsubmit = "onClick(this);  return false;">
 			<input type = "text" name = "lastname" placeholder = "Фамилия" onfocus="inputFocus(this, 'Фамилия')"/>
@@ -376,16 +500,24 @@
 		<div class = "final-line">
 			<input type = "button" value = "Составить сетку" class = "generate-button" onclick="circles = get_circles(); render_circles()" />
 			<input type = "button" value = "Сохранить сетку в браузере" class = "generate-button" onclick="save_grid()" />
-			<input type = "button" value = "Восстановить последнюю сетку" class = "generate-button" onclick="restore_grid(); render_circles(); render_contestants_list()" />
+			<input type = "button" value = "Восстановить последнюю сетку" class = "generate-button" onclick="restore_grid(); render_circles(); render_contestants_list(); check_final()" />
 		</div>
 	</content>
 
-	<h1>Турнирная таблица</h1>
-	<content class = "chart frostglass">
-	</content>
+	<h1 id = "current_chart_condition">Турнирная таблица</h1>
+	<div class = "charts">
+		<content class = "chart main active">
+		</content>
+		<content class = "chart comforting">
+			<div class="circle"><div class="pair" tense_coord="0 0"><div class="contestant">Первый</div><div class="contestant">Третий</div></div><div class="pair" tense_coord="0 1"><div class="contestant">Второй</div><div class="contestant">Четвертый</div></div></div>
+		</content>
+	</div>
+	<div id = "chart-manage" class = "hide">
+		<div class = "button prev" onclick = "toggle_current_chart()"><Предыдущая сетка</div>
+		<div class = "button next" onclick = "toggle_current_chart()">Следующая сетка ></div>
+	</div>
 
-
-	<content id = "fight-window" class = "frostglass show">
+	<content id = "fight-window" class = "frostglass">
 		<div class = "left side">
 			<div class = "lastname">Пупкин</div>
 			<div class = "C">
@@ -413,7 +545,7 @@
 		</div>
 		<div class = "timer">
 			<div class = "clock" id = "fight-window-timer-clock"><p>00</p>:<p>00</p></div>
-			<div class = "pause" onclick = "toggle_timer()"></div>
+			<div class = "pause" onclick = "toggle_timer(this)"></div>
 			<div class = "text">Укажите время раунда</div>
 			<div class = "line" id = "fight-window-timer-line">
 				<input type="number" placeholder="Минуты " onchange = "on_timer_change(this, true)">

@@ -23,9 +23,7 @@
 	transition: 0.2s;
 }
 body{
-	background: url('./bck.jpg');
-	background-size: cover;
-	background-attachment: fixed;
+	background-color: black;
 	display: flex;
 	flex-direction: column;
 }
@@ -138,17 +136,31 @@ h1{
 	flex-direction: row-reverse;
 	padding-left: auto;
 }
+.charts{
+	display: flex;
+	flex-direction: row;
+	overflow: hidden;
+}
+.chart.active{
+	min-width: calc(100% - 80px);
+}
+.chart.comforting{
+	background: #281818;
+}
 .chart{
 	display: flex;
 	flex-direction: row;
-	width: calc(100% - 80px);
+	max-width: 0px;
 	height: 100%;
 	margin: 20px;
 	padding: 20px;
 	border-radius: 25px;
 	background-color: rgba(255, 255, 255, 0.2);
 	font-size: 20px;
+	overflow: hidden;
 }
+.chart {display: none;}
+.chart.active {display: flex;}
 .chart .circle:first-child{margin: 0; margin-right: 20px;}
 .chart .circle{
 	display: flex;
@@ -179,6 +191,31 @@ h1{
 }
 .chart .circle .pair .contestant:last-child{
 	border-top: none;
+}
+
+#chart-manage{
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	height: 40px;
+	width: calc(100% - 40px);
+	background-color: red;
+	margin: 20px;
+	border-radius: 25px;
+	background-color: rgba(255, 255, 255, 0.2);
+	overflow: hidden;
+}
+#chart-manage .button{
+	height: 40px;
+	background-color: #006600;
+	font-size: 20px;
+	padding: 0 20px;
+	line-height: 40px;
+	color: white;
+	cursor: pointer;
+}
+#chart-manage.hide{
+	max-height: 0px;
 }
 
 #fight-window{
@@ -305,6 +342,10 @@ h1{
 	background-size: cover;
 	margin-top: 10px;
 	margin-bottom: 30px;
+}
+#fight-window .pause.paused{
+	background: url('./play.png');
+	background-size: cover;
 }
 #fight-window .timer .clock{
 	display: flex;

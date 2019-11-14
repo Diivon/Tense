@@ -131,6 +131,19 @@
 			background-size: cover;
 			z-index: -9;
 		}
+		.pause{
+			height: 50px;
+			width: 50px;
+			background: black;
+			background-size: cover;
+			margin: 10px auto 30px auto;
+			opacity: 0;
+		}
+		.pause.paused{
+			background: url('./pause.png');
+			background-size: cover;
+			opacity: 1;
+		}
 	</style>
 	<script src="./jquery.js"></script>
 	<script type="text/javascript">
@@ -153,6 +166,10 @@
 					document.getElementById('body').classList.toggle('reverse');
 				if(obj.type == 'winner')
 					render_winner(obj.is_left);
+				if(obj.type == 'timer_pause')
+					pause_timer();
+				if(obj.type == 'timer_unpause')
+					unpause_timer();
 			}
 			if (e.key == 'timer_update_slave'){
 				if(obj.type == 'timer_update')
@@ -204,6 +221,12 @@
 			places.eq(0).text(num_to_2_char(timer.m));
 			places.eq(1).text(num_to_2_char(timer.s));
 		}
+		function pause_timer(){
+			$(document).find('.side.center > .pause').addClass('paused')
+		}
+		function unpause_timer(){
+			$(document).find('.side.center > .pause').removeClass('paused')
+		}
 	</script>
 </head>
 <body id = "body">
@@ -228,6 +251,7 @@
 	</div>
 	<div class = "center side">
 		<div class = "timer"><p>00</p>:<p>30</p></div>
+		<div class = "pause"></div>
 	</div>
 	<div class = "right side">
 		<div class = "lastname">Правый</div>
