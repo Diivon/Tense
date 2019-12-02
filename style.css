@@ -177,6 +177,9 @@ h1{
 	color: white; 
 	background-color: rgba(255, 255, 255, 0.2);
 }
+.chart .circle.last .pair .contestant:last-child{
+	border: 1px solid black;
+}
 .chart .circle .pair:hover{
 	background-color: black; 
 	cursor: pointer;
@@ -415,4 +418,80 @@ h1{
 #fight-window .side.winner .points{
 	animation: fight-window-winner 0.5s ease-in-out;
 	animation-iteration-count: infinite;
+}
+
+#places{
+	display: flex;
+    flex-direction: row;
+    width: calc(100% - 80px);
+    margin: 20px;
+    padding: 20px;
+    border-radius: 25px;
+    background-color: rgba(255, 255, 255, 0.2);
+    font-size: 20px;
+    overflow: hidden;
+    color: white;
+}
+#places .first-three{
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+}
+#places .first-three .line{	
+	display: flex;
+	flex-direction: row;
+	justify-content: center;
+	height: 100%;
+	margin: 20px 0;
+}
+#places .first-three .line div{
+	height: 100%;
+	border: 1px solid white;
+	margin: 0 20px;
+	min-width: 30%;
+}	
+#places .first-three .line div h3{
+	transform: translateY(-100%);
+	text-align: center;
+}
+#places .first-three .line div h2{
+	position: relative;
+	top: -24px;
+	text-align: center;
+	font-size: 70px;
+}
+#places > .first-three > .second-line{
+	flex-direction: row;
+	justify-content: center;
+	height: 100%;
+	margin: 20px 0;
+}
+#places .first-three .second-line > div{
+	height: 100%;
+	border: 1px solid white;
+}	
+#places .first-three .second-line > div > h3{
+	transform: translateY(-100%);
+}
+#places .first-three .second-line > div > h2{
+	position: relative;
+	top: -24px;
+	text-align: center;
+	font-size: 70px;
+}
+#places .other{
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+}
+#places .other div{
+	margin: 0 10px;
+	background-color: rgba(0, 0, 0, 0.2);
+	height: 40px;
+	border-radius: 20px;
+	padding: 0 20px;
+	margin: 5px 0;
+	line-height: 40px;
 }

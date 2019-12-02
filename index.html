@@ -8,6 +8,7 @@
 	<script type="text/javascript">
 		function get_default_fighter(){ return {points: 0, C1: 0, C2: 0, lastname: "Левый"};}
 		var contestants = [];
+		var places = [];
 		var circles = undefined;
 		var comforting_circles = undefined;
 		var current_chart = 'main';
@@ -114,6 +115,7 @@
 			var circles_inner = [first_circle];
 			for (x = first_circle.length / 2; x >= 1; x /= 2) 
 				circles_inner.push(new Array(Math.ceil(x)).fill({first: undefined, second: undefined}));
+			circles_inner.push(new Array(1).fill({first: undefined}))
 			return circles_inner;
 		}
 		function not_undefined_or(a,b){
@@ -140,7 +142,6 @@
 				circles[new_x][new_y][is_first ? 'first' : 'second'] = c_id;
 			else
 				comforting_circles[new_x][new_y][is_first ? 'first' : 'second'] = c_id;
-			console.log(comforting_circles);
 			render_circles();
 			check_final();
 		}
@@ -224,18 +225,29 @@
 						.append($('<div />').addClass('contestant').text(second_lastname))
 						.click(on_pair_click_fn)
 						.attr('tense_coord', n.toString() + ' ' + i.toString())//coords of pair
-				)
+				);
 			}
+			return result;
+		}
+		function get_last_circle(){
+			var result = $('<div />').addClass('circle').addClass('last');
+			first_lastname = (typeof circles[circles.length - 1][0].first !== 'undefined') ? contestants[circles[circles.length - 1][0].first].lastname : '-';
+			result.append(
+					$('<div />').addClass('pair')
+						.append($('<div />').addClass('contestant').text(first_lastname))
+						.attr('tense_coord', circles.length.toString() + ' 0')
+				);
 			return result;
 		}
 		function render_circles(){
 			if (circles === undefined || (circles.length == 1 && circles[0].length == 0)) return;
 			var cont = $('content.chart.main');
 			cont.empty();
-			for (var i = 0; i < circles.length; i++) {
+			for (var i = 0; i < circles.length - 1; i++) 
 				cont.append(get_rendered_circle(circles[i], i, on_pair_click)[0]);
-			}
+			cont.append(get_last_circle());
 			render_comforting_circle();
+			update_places();
 		}
 		function render_contestants_list(){
 			document.getElementById('contestants-list').innerHTML = "";
@@ -404,7 +416,7 @@
 			$('#current_chart_condition').first().text(current_chart_header());
 		}
 		function check_final(){
-			if (circles[circles.length - 1][0].first === undefined || circles[circles.length - 1][0].second === undefined) return;
+			if (circles[circles.length - 2][0].first === undefined || circles[circles.length - 2][0].second === undefined) return;
 			if (comforting_circles !== undefined) return;
 
 			$('#chart-manage').removeClass('hide');
@@ -451,11 +463,11 @@
 		}
 		function generate_comforting_circle(){
 			var c_l = circles.length;
-			var f_win = circles[c_l - 1][0].first;
-			var s_win = circles[c_l - 1][0].second;
+			var f_win = circles[c_l - 2][0].first;
+			var s_win = circles[c_l - 2][0].second;
 			var res_arr = [];
-			f_circles = get_comforting_circles_of(f_win, false);
-			s_circles = get_comforting_circles_of(s_win, true);
+			f_circles = get_comforting_circles_of(f_win, true);
+			s_circles = get_comforting_circles_of(s_win, false);
 			s_circles.forEach(function(el){
 				el.reverse();
 			});
@@ -483,9 +495,81 @@
 			if (pair_is_full(pair))	open_fight_window(pair, pair_coords);
 			else move_forward_contestant(pair_coords, get_only_in_pair(pair), comforting_circles);
 		}
+		function is_circle_full(circle){
+			for (var i = 0; i < circle.length; i++) 
+				if (circle[i].first === undefined || circle[i].second === undefined) return false;
+			return true;
+		}
+		function get_all_id_in_circle(circle){
+			var res = [];
+			circle.forEach(function(el){
+				if (el.first !== undefined)
+					res.push(el.first)
+				if (el.second !== undefined)
+					res.push(el.second)
+			});
+			return res;
+		}
+		function DiffArrays(A, B){//copypaste
+			//returns A without any of B
+		    var M = A.length, N = B.length, c = 0, C = [];
+		    for (var i = 0; i < M; i++)
+		     { var j = 0, k = 0;
+		       while (B[j] !== A[ i ] && j < N) j++;
+		       while (C[k] !== A[ i ] && k < c) k++;
+		       if (j == N && k == c) C[c++] = A[ i ];
+		     }
+		   return C;
+		}
+		function get_places_array(){
+			var copy = circles.slice();
+			var arr = [];
+			copy.forEach(function(circle){
+				arr.push(get_all_id_in_circle(circle))
+			});
+			for (var i = 0; i < arr.length - 1; i++)
+				arr[i] = DiffArrays(arr[i], arr[i + 1]);
+			arr.reverse();
+			var res = []
+			var last_place = 1;
+			for (var i = 0; i < arr.length; i++){
+				res.push({place: last_place.toString() + '-' + (last_place + arr[i].length - 1).toString(), id: arr[i]});
+				last_place += arr[i].length;
+			}
+			return res;
+		}
+		function get_place_text(el){
+			return el.id.map(function(i){return contestants[i].lastname}).join(' ');
+		}
+		function update_places(){
+			if (circles[circles.length - 1][0].first === undefined) return;//if competition is not ended - return;
+			places = get_places_array();
+			$('#places > .first-three > .line > .first > h3').text(get_place_text(places[0]));
+			$('#places > .first-three > .line > .second > h3').text(get_place_text(places[1]));
+			$('#places > .first-three > .line > .third > h3').text(get_place_text(places[2]));
+
+			var other_places = places.slice(3);
+			var into = $('#places > .other');
+			into.empty()
+			var other = [];
+			other_places.forEach(function(arr){
+				arr.id.forEach(function(el){
+					other.push({place: arr.place, id: el});
+				})
+			});
+			console.log(other);
+			other.forEach(function(el){
+				into.append($('<div />').text(el.place + ': ' + contestants[el.id].lastname));
+			});
+		}
+		$(document).keyup(function(e) {
+		     if (e.key === "Escape") {
+		        close_fight_window();
+		    }
+		});
 	</script>
 </head>
-<body>
+<body >
 	<h1>Список участников</h1>
 	<content class = "contestants-list" class = "debug">
 		<div class = "info" id = "contestants-list"></div>
@@ -515,6 +599,31 @@
 	<div id = "chart-manage" class = "hide">
 		<div class = "button prev" onclick = "toggle_current_chart()"><Предыдущая сетка</div>
 		<div class = "button next" onclick = "toggle_current_chart()">Следующая сетка ></div>
+	</div>
+	<h1>Список занятых мест</h1>
+	<div id = "places">
+		<div class = "first-three">
+			<div class = "line">
+				<div class = "first">
+					<h3>Первый</h3>
+					<h2>1</h2>
+				</div>
+			</div>
+			<div class = "line">
+				<div class = "second">
+					<h3>Второй</h3>
+					<h2>2</h2>
+				</div>
+				<div class = "third">
+					<h3>Третий</h3>
+					<h2>3</h2>
+				</div>
+			</div>
+		</div>
+		<div class = "other">
+			<div>4: Пупкин</div>
+			<div>5: Залупкин</div>
+		</div>
 	</div>
 
 	<content id = "fight-window" class = "frostglass">
